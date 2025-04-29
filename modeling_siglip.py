@@ -47,7 +47,7 @@ class SiglipAttention(nn.Module):
     def __init__(self, config: SiglipVisionConfig):
         super().__init__()
         self.config = config
-        self.embed_dim = config.embed_dim
+        self.embed_dim = config.hidden_size
         self.num_heads = config.num_attention_heads
         self.head_dim = self.embed_dim // self.num_heads 
         self.scale = self.head_dim**-0.5
@@ -135,8 +135,8 @@ class SiglipVisionEmbedding(nn.Module):
 
         self.patch_embedding = nn.Conv2d(
             in_channels=config.num_channels,
-            out_channels=config.embed_dim, 
-            kernel_size=config.patch_size, 
+            out_channels=self.embed_dim, 
+            kernel_size=self.patch_size, 
             stride=self.patch_size, 
             padding='valid' #this indicates no padding is added
         )

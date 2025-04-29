@@ -3,7 +3,7 @@ import torch.nn as nn
 from typing import List, Optional, Tuple
 from torch.nn import CrossEntropyLoss
 import math
-from modelling_siglip import SiglipVisionConfig, SiglipVisionModel
+from modeling_siglip import SiglipVisionConfig, SiglipVisionModel
 
 def repeat_kv(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
     batch, num_key_value_head, slen, head_dim = hidden_states.shape
@@ -11,7 +11,7 @@ def repeat_kv(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
         return hidden_states
     hidden_states = hidden_states[:, :, None, :, : ].expand(batch, num_key_value_head, n_rep, slen, head_dim)
     return hidden_states.reshape(batch, num_key_value_head*n_rep, slen, head_dim)
-class kv_cache:
+class KVCache:
     def __init__(self) -> None:
         self.key_cache: List[torch.Tensor] = []
         self.value_cache: List[torch.Tensor] = []
@@ -129,6 +129,17 @@ class GemmaRotaryEmbedding(nn.Module):
             sin = emb.sin()
         return cos.to(dtype=x.dtype), sin.to(dtype=x.dtype)
 
+def rotate_half(x):
+    x1 = x[..., :x.shape[-1] // 2]
+    x2 = x[..., x.shape[-1]//2 :]
+    return torch.cat((-x2, x1), dim=-1)
+def apply_rotary_pos_emb(q, k, cos, sin, unsqueeze_dim=1):
+    cos = cos.unsqueeze(unsqueeze_dim)
+    sin = sin.unsqueeze(unsqueeze_dim)
+
+    q_embed = (q*cos) + (rotate_half(q)*sin) 
+    k_embed = (k*cos) + (rotate_half(k)*sin)
+    return q_embed, k_embed
 
 class PaliGemmaMultiModalProjector(nn.Module):
     def __init__(self, config: PaliGemmaConfig):
@@ -399,7 +410,7 @@ class PaliGemmaForConditionalGeneration(nn.Module):
             input_ids: torch.LongTensor = None, 
             pixel_values: torch.FloatTensor = None, 
             attention_mask: Optional[torch.Tensor] = None, 
-            kv_cache: Optional[KVcache] = None, 
+            kv_cache: Optional[KVCache] = None, 
 
     ) -> Tuple:
         assert torch.all(attention_mask==1), 'The input cannot be padded'
