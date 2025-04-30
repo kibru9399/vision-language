@@ -1,0 +1,29 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug Inference Script", // Descriptive name for the dropdown
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/inference.py", // Path to your python script
+            "console": "integratedTerminal",
+            "args": [
+                "--model_path", "paligemma_local_files",
+                "--prompt", "what is this building? ",
+                "--image_file_path", "test_images/new.jpeg",
+                "--max_tokens_to_generate", "100",
+                "--temperature", "1.0",
+                "--top_p", "0.7",
+                "--do_sample", "True",
+                "--only_cpu", "False"
+            ],
+            "justMyCode": true, // Set to false if you need to step into library code
+            // Optional: Specify Python interpreter if needed (useful for virtual environments)
+            // "python": "${command:python.interpreterPath}" // Tries to use the currently selected interpreter
+            "python": "/venv/main/bin/python" // Or specify explicitly
+        }
+    ]
+}

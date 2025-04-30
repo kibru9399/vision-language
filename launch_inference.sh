@@ -1,12 +1,12 @@
 #!/bin/bash
 
-MODEL_PATH="$HOME/Documents/project/vision-language/paligemma_local_files"
-PROMPT="this building is "
-IMAGE_FILE_PATH="test_images/pic1.jpg"
+MODEL_PATH="paligemma_local_files"
+PROMPT="who built this and why? "
+IMAGE_FILE_PATH="test_images/new.jpeg"
 MAX_TOKENS_TO_GENERATE=100
 TEMPERATURE=0.8
 TOP_P=0.9
-DO_SAMPLE="False"
+DO_SAMPLE="True"
 ONLY_CPU="False"
 
 python inference.py \

@@ -1,10 +1,11 @@
-from typing import Dict, List, Tuple, Union, Optional, Iterable
+from typing import Dict, List, Optional, Union, Tuple, Iterable
 import numpy as np
 from PIL import Image
 import torch
 
 IMAGENET_STANDARD_MEAN = [0.5, 0.5, 0.5]
 IMAGENET_STANDARD_STD = [0.5, 0.5, 0.5]
+
 
 def add_image_tokens_to_prompt(prefix_prompt, bos_token, image_seq_len, image_token):
     # Quoting from the blog (https://huggingface.co/blog/paligemma#detailed-inference-process):
@@ -16,6 +17,7 @@ def add_image_tokens_to_prompt(prefix_prompt, bos_token, image_seq_len, image_to
     #       ref to HF implementation: https://github.com/huggingface/transformers/blob/7f79a97399bb52aad8460e1da2f36577d5dccfed/src/transformers/models/paligemma/processing_paligemma.py#L55-L73
     return f"{image_token * image_seq_len}{bos_token}{prefix_prompt}\n"
 
+
 def rescale(
     image: np.ndarray, scale: float, dtype: np.dtype = np.float32
 ) -> np.ndarray:
@@ -23,15 +25,6 @@ def rescale(
     rescaled_image = rescaled_image.astype(dtype)
     return rescaled_image
 
-def normalize(
-    image: np.ndarray,
-    mean: Union[float, Iterable[float]],
-    std: Union[float, Iterable[float]],
-) -> np.ndarray:
-    mean = np.array(mean, dtype=image.dtype)
-    std = np.array(std, dtype=image.dtype)
-    image = (image - mean) / std
-    return image
 
 def resize(
     image: Image,
@@ -44,6 +37,18 @@ def resize(
         (width, height), resample=resample, reducing_gap=reducing_gap
     )
     return resized_image
+
+
+def normalize(
+    image: np.ndarray,
+    mean: Union[float, Iterable[float]],
+    std: Union[float, Iterable[float]],
+) -> np.ndarray:
+    mean = np.array(mean, dtype=image.dtype)
+    std = np.array(std, dtype=image.dtype)
+    image = (image - mean) / std
+    return image
+
 
 def process_images(
     images: List[Image.Image],
@@ -69,12 +74,15 @@ def process_images(
 
 
 class PaliGemmaProcessor:
+
     IMAGE_TOKEN = "<image>"
+
     def __init__(self, tokenizer, num_image_tokens: int, image_size: int):
         super().__init__()
 
-        self.image_seq_len = num_image_tokens
+        self.image_seq_length = num_image_tokens
         self.image_size = image_size
+
         # Tokenizer described here: https://github.com/google-research/big_vision/blob/main/big_vision/configs/proj/paligemma/README.md#tokenizer
         tokens_to_add = {"additional_special_tokens": [self.IMAGE_TOKEN]}
         tokenizer.add_special_tokens(tokens_to_add)
@@ -91,40 +99,48 @@ class PaliGemmaProcessor:
         tokenizer.add_eos_token = False
 
         self.tokenizer = tokenizer
-    def __call__(
-            self, 
-            text: List[str],
-            images: List[str], 
-            padding: str = 'longest', 
-            truncation: bool = True
 
+    def __call__(
+        self,
+        text: List[str],
+        images: List[Image.Image],
+        padding: str = "longest",
+        truncation: bool = True,
     ) -> dict:
-        assert len(text) == 1 and len(images) == 1, f"Received {len(images)} images for {len(text)}\
-            prompts."
-        pixel_values = process_image(
-            images, 
-            size=(self.image_size, self.image_size), 
-            resample=Image.Resampling.BICUBIC, 
-            rescale_factor=1/255.0, 
-            image_mean=IMAGENET_STANDARD_MEAN, 
-            image_std=IMAGENET_STANDARD_STD
+        assert len(images) == 1 and len(text) == 1, f"Received {len(images)} images for {len(text)} prompts."
+
+        pixel_values = process_images(
+            images,
+            size=(self.image_size, self.image_size),
+            resample=Image.Resampling.BICUBIC,
+            rescale_factor=1 / 255.0,
+            image_mean=IMAGENET_STANDARD_MEAN,
+            image_std=IMAGENET_STANDARD_STD,
         )
+        # Convert the list of numpy arrays to a single numpy array with shape [Batch_Size, Channel, Height, Width]
         pixel_values = np.stack(pixel_values, axis=0)
+        # Convert the numpy array to a PyTorch tensor
         pixel_values = torch.tensor(pixel_values)
 
+        # Prepend a `self.image_seq_length` number of image tokens to the prompt
         input_strings = [
             add_image_tokens_to_prompt(
-                prefix_prompt=prompt, 
-                bos_token=self.tokenizer.bos_token, 
-                image_seq_len=self.image_seq_len, 
-                image_token=self.IMAGE_TOKEN
+                prefix_prompt=prompt,
+                bos_token=self.tokenizer.bos_token,
+                image_seq_len=self.image_seq_length,
+                image_token=self.IMAGE_TOKEN,
             )
             for prompt in text
         ]
+
+        # Returns the input_ids and attention_mask as PyTorch tensors
         inputs = self.tokenizer(
-            input_strings, 
-            return_tensors="pt", 
+            input_strings,
+            return_tensors="pt",
             padding=padding,
-            truncation=truncation
+            truncation=truncation,
         )
-        return_date = {"pixel_values": pixel_values, **inputs}
+
+        return_data = {"pixel_values": pixel_values, **inputs}
+
+        return return_data
